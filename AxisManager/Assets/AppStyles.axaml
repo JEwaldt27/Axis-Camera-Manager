@@ -1,0 +1,273 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dg="clr-namespace:Avalonia.Controls;assembly=Avalonia.Controls.DataGrid">
+
+	<!-- ── Color Resources (theme-aware) ── -->
+	<Styles.Resources>
+		<ResourceDictionary>
+			<ResourceDictionary.ThemeDictionaries>
+
+				<!-- ══ DARK ══ -->
+				<ResourceDictionary x:Key="Dark">
+					<SolidColorBrush x:Key="BgBrush"         Color="#0d0f12"/>
+					<SolidColorBrush x:Key="Bg2Brush"        Color="#151820"/>
+					<SolidColorBrush x:Key="Bg3Brush"        Color="#1c2030"/>
+					<SolidColorBrush x:Key="BorderBrush"     Color="#2a3045"/>
+					<SolidColorBrush x:Key="AccentBrush"     Color="#00c8ff"/>
+					<SolidColorBrush x:Key="Accent2Brush"    Color="#0088bb"/>
+					<SolidColorBrush x:Key="SuccessBrush"    Color="#00e676"/>
+					<SolidColorBrush x:Key="WarningBrush"    Color="#ffb300"/>
+					<SolidColorBrush x:Key="DangerBrush"     Color="#ff4444"/>
+					<SolidColorBrush x:Key="TextBrush"       Color="#e8eaf0"/>
+					<SolidColorBrush x:Key="TextDimBrush"    Color="#6b7590"/>
+					<SolidColorBrush x:Key="TextBrightBrush" Color="#ffffff"/>
+					<SolidColorBrush x:Key="OnAccentBrush"   Color="#ffffff"/>
+					<SolidColorBrush x:Key="SelectionBrush"  Color="#0088bb"/>
+					<SolidColorBrush x:Key="DangerBgBrush"   Color="#3a1515"/>
+					<SolidColorBrush x:Key="WarningBgBrush"  Color="#2a2010"/>
+					<SolidColorBrush x:Key="AuthBgBrush"     Color="#1a0f0f"/>
+				</ResourceDictionary>
+
+				<!-- ══ LIGHT ══ -->
+				<ResourceDictionary x:Key="Light">
+					<SolidColorBrush x:Key="BgBrush"         Color="#eef1f5"/>
+					<SolidColorBrush x:Key="Bg2Brush"        Color="#f7f9fb"/>
+					<SolidColorBrush x:Key="Bg3Brush"        Color="#ffffff"/>
+					<SolidColorBrush x:Key="BorderBrush"     Color="#d2d9e4"/>
+					<SolidColorBrush x:Key="AccentBrush"     Color="#0077a8"/>
+					<SolidColorBrush x:Key="Accent2Brush"    Color="#0091c7"/>
+					<SolidColorBrush x:Key="SuccessBrush"    Color="#1c9d52"/>
+					<SolidColorBrush x:Key="WarningBrush"    Color="#b8770a"/>
+					<SolidColorBrush x:Key="DangerBrush"     Color="#d23b3b"/>
+					<SolidColorBrush x:Key="TextBrush"       Color="#1c2230"/>
+					<SolidColorBrush x:Key="TextDimBrush"    Color="#6b7590"/>
+					<SolidColorBrush x:Key="TextBrightBrush" Color="#0a0f1a"/>
+					<SolidColorBrush x:Key="OnAccentBrush"   Color="#ffffff"/>
+					<SolidColorBrush x:Key="SelectionBrush"  Color="#cfe8f4"/>
+					<SolidColorBrush x:Key="DangerBgBrush"   Color="#fbe9e9"/>
+					<SolidColorBrush x:Key="WarningBgBrush"  Color="#fdf3e0"/>
+					<SolidColorBrush x:Key="AuthBgBrush"     Color="#fdecec"/>
+				</ResourceDictionary>
+
+			</ResourceDictionary.ThemeDictionaries>
+
+			<SolidColorBrush x:Key="TransparentBrush" Color="Transparent"/>
+		</ResourceDictionary>
+	</Styles.Resources>
+
+	<!-- ── Window ── -->
+	<Style Selector="Window">
+		<Setter Property="Background" Value="{DynamicResource BgBrush}"/>
+		<Setter Property="FontFamily" Value="Courier New, Consolas, monospace"/>
+	</Style>
+
+	<!-- ── TextBlock defaults ── -->
+	<Style Selector="TextBlock">
+		<Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+		<Setter Property="FontFamily" Value="Courier New, Consolas, monospace"/>
+	</Style>
+
+	<Style Selector="TextBlock.title">
+		<Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+		<Setter Property="FontSize" Value="20"/>
+		<Setter Property="FontWeight" Value="Bold"/>
+	</Style>
+	<Style Selector="TextBlock.section-header">
+		<Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+		<Setter Property="FontSize" Value="10"/>
+		<Setter Property="FontWeight" Value="Bold"/>
+	</Style>
+	<Style Selector="TextBlock.dim">
+		<Setter Property="Foreground" Value="{DynamicResource TextDimBrush}"/>
+		<Setter Property="FontSize" Value="10"/>
+	</Style>
+	<Style Selector="TextBlock.bright">
+		<Setter Property="Foreground" Value="{DynamicResource TextBrightBrush}"/>
+		<Setter Property="FontWeight" Value="Bold"/>
+	</Style>
+	<Style Selector="TextBlock.value">
+		<Setter Property="Foreground" Value="{DynamicResource TextBrightBrush}"/>
+		<Setter Property="FontSize" Value="11"/>
+		<Setter Property="FontWeight" Value="Bold"/>
+	</Style>
+	<Style Selector="TextBlock.label">
+		<Setter Property="Foreground" Value="{DynamicResource TextDimBrush}"/>
+		<Setter Property="FontSize" Value="9"/>
+	</Style>
+	<Style Selector="TextBlock.accent">
+		<Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+	</Style>
+	<Style Selector="TextBlock.success">
+		<Setter Property="Foreground" Value="{DynamicResource SuccessBrush}"/>
+	</Style>
+	<Style Selector="TextBlock.warning">
+		<Setter Property="Foreground" Value="{DynamicResource WarningBrush}"/>
+	</Style>
+	<Style Selector="TextBlock.danger">
+		<Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/>
+	</Style>
+
+	<!-- ── Panels ── -->
+	<Style Selector="Border.panel">
+		<Setter Property="Background" Value="{DynamicResource Bg2Brush}"/>
+	</Style>
+	<Style Selector="Border.card">
+		<Setter Property="Background" Value="{DynamicResource Bg3Brush}"/>
+		<Setter Property="CornerRadius" Value="4"/>
+	</Style>
+
+	<!-- ── Buttons ── -->
+	<Style Selector="Button">
+		<Setter Property="Background" Value="{DynamicResource Bg3Brush}"/>
+		<Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+		<Setter Property="BorderThickness" Value="0"/>
+		<Setter Property="Padding" Value="12,6"/>
+		<Setter Property="FontFamily" Value="Courier New, Consolas, monospace"/>
+		<Setter Property="FontSize" Value="10"/>
+		<Setter Property="Cursor" Value="Hand"/>
+		<Setter Property="CornerRadius" Value="3"/>
+	</Style>
+	<Style Selector="Button:pointerover /template/ ContentPresenter">
+		<Setter Property="Background" Value="{DynamicResource BorderBrush}"/>
+	</Style>
+
+	<Style Selector="Button.accent">
+		<Setter Property="Background" Value="{DynamicResource Accent2Brush}"/>
+		<Setter Property="Foreground" Value="{DynamicResource OnAccentBrush}"/>
+		<Setter Property="FontWeight" Value="Bold"/>
+	</Style>
+	<Style Selector="Button.accent:pointerover /template/ ContentPresenter">
+		<Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+		<Setter Property="TextElement.Foreground" Value="{DynamicResource OnAccentBrush}"/>
+	</Style>
+
+	<Style Selector="Button.danger">
+		<Setter Property="Background" Value="{DynamicResource DangerBgBrush}"/>
+		<Setter Property="Foreground" Value="{DynamicResource DangerBrush}"/>
+	</Style>
+	<Style Selector="Button.danger:pointerover /template/ ContentPresenter">
+		<Setter Property="Background" Value="{DynamicResource DangerBrush}"/>
+		<Setter Property="TextElement.Foreground" Value="{DynamicResource OnAccentBrush}"/>
+	</Style>
+
+	<Style Selector="Button.warning">
+		<Setter Property="Background" Value="{DynamicResource WarningBgBrush}"/>
+		<Setter Property="Foreground" Value="{DynamicResource WarningBrush}"/>
+	</Style>
+	<Style Selector="Button.warning:pointerover /template/ ContentPresenter">
+		<Setter Property="Background" Value="{DynamicResource WarningBrush}"/>
+		<Setter Property="TextElement.Foreground" Value="{DynamicResource OnAccentBrush}"/>
+	</Style>
+
+	<Style Selector="Button.ghost">
+		<Setter Property="Background" Value="Transparent"/>
+		<Setter Property="Foreground" Value="{DynamicResource TextDimBrush}"/>
+		<Setter Property="FontSize" Value="9"/>
+	</Style>
+	<Style Selector="Button.ghost:pointerover /template/ ContentPresenter">
+		<Setter Property="Background" Value="{DynamicResource Bg3Brush}"/>
+		<Setter Property="TextElement.Foreground" Value="{DynamicResource TextBrush}"/>
+	</Style>
+
+	<!-- ── TextBox ── -->
+	<Style Selector="TextBox">
+		<Setter Property="Background" Value="{DynamicResource Bg3Brush}"/>
+		<Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+		<Setter Property="CaretBrush" Value="{DynamicResource AccentBrush}"/>
+		<Setter Property="SelectionBrush" Value="{DynamicResource Accent2Brush}"/>
+		<Setter Property="BorderThickness" Value="1"/>
+		<Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+		<Setter Property="Padding" Value="8,6"/>
+		<Setter Property="FontFamily" Value="Courier New, Consolas, monospace"/>
+		<Setter Property="FontSize" Value="10"/>
+		<Setter Property="CornerRadius" Value="3"/>
+	</Style>
+	<Style Selector="TextBox:focus">
+		<Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+	</Style>
+
+	<!-- ── ListBox ── -->
+	<Style Selector="ListBox">
+		<Setter Property="Background" Value="{DynamicResource Bg2Brush}"/>
+		<Setter Property="BorderThickness" Value="0"/>
+		<Setter Property="Padding" Value="0"/>
+	</Style>
+	<Style Selector="ListBoxItem">
+		<Setter Property="Background" Value="Transparent"/>
+		<Setter Property="Padding" Value="12,8"/>
+		<Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+		<Setter Property="FontFamily" Value="Courier New, Consolas, monospace"/>
+	</Style>
+	<Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+		<Setter Property="Background" Value="{DynamicResource SelectionBrush}"/>
+	</Style>
+	<Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
+		<Setter Property="Background" Value="{DynamicResource Bg3Brush}"/>
+	</Style>
+
+	<!-- ── DataGrid ── -->
+	<Style Selector="DataGrid">
+		<Setter Property="Background" Value="{DynamicResource Bg2Brush}"/>
+		<Setter Property="GridLinesVisibility" Value="Horizontal"/>
+		<Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource BorderBrush}"/>
+		<Setter Property="VerticalGridLinesBrush" Value="Transparent"/>
+		<Setter Property="BorderThickness" Value="0"/>
+		<Setter Property="RowBackground" Value="{DynamicResource Bg2Brush}"/>
+		<Setter Property="FontFamily" Value="Courier New, Consolas, monospace"/>
+		<Setter Property="FontSize" Value="10"/>
+		<Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+	</Style>
+	<Style Selector="DataGridRow:nth-child(even)">
+		<Setter Property="Background" Value="{DynamicResource Bg3Brush}"/>
+	</Style>
+	<Style Selector="DataGridColumnHeader">
+		<Setter Property="Background" Value="{DynamicResource Bg3Brush}"/>
+		<Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+		<Setter Property="FontSize" Value="9"/>
+		<Setter Property="FontWeight" Value="Bold"/>
+		<Setter Property="Padding" Value="12,8"/>
+		<Setter Property="BorderThickness" Value="0,0,0,1"/>
+		<Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+		<Setter Property="FontFamily" Value="Courier New, Consolas, monospace"/>
+	</Style>
+	<Style Selector="DataGridRow:selected">
+		<Setter Property="Background" Value="{DynamicResource SelectionBrush}"/>
+	</Style>
+	<Style Selector="DataGridCell">
+		<Setter Property="Padding" Value="12,6"/>
+		<Setter Property="BorderThickness" Value="0"/>
+	</Style>
+
+	<!-- ── TabControl ── -->
+	<Style Selector="TabControl">
+		<Setter Property="Background" Value="{DynamicResource Bg2Brush}"/>
+		<Setter Property="Padding" Value="0"/>
+	</Style>
+	<Style Selector="TabItem">
+		<Setter Property="Background" Value="{DynamicResource Bg3Brush}"/>
+		<Setter Property="Foreground" Value="{DynamicResource TextDimBrush}"/>
+		<Setter Property="FontFamily" Value="Courier New, Consolas, monospace"/>
+		<Setter Property="FontSize" Value="10"/>
+		<Setter Property="Padding" Value="16,8"/>
+		<Setter Property="BorderThickness" Value="0"/>
+	</Style>
+	<Style Selector="TabItem:selected">
+		<Setter Property="Background" Value="{DynamicResource Bg2Brush}"/>
+		<Setter Property="Foreground" Value="{DynamicResource AccentBrush}"/>
+	</Style>
+
+	<!-- ── ScrollBar ── -->
+	<Style Selector="ScrollBar">
+		<Setter Property="Background" Value="{DynamicResource Bg2Brush}"/>
+	</Style>
+	<Style Selector="ScrollBar /template/ Thumb">
+		<Setter Property="Background" Value="{DynamicResource BorderBrush}"/>
+	</Style>
+
+	<!-- ── Separator ── -->
+	<Style Selector="Separator">
+		<Setter Property="Background" Value="{DynamicResource BorderBrush}"/>
+		<Setter Property="Height" Value="1"/>
+	</Style>
+
+</Styles>
