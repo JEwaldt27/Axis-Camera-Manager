@@ -1,14 +1,14 @@
 # AXIS Camera Manager
-### Avalonia .NET 8 — Windows & Linux
+### Avalonia .NET 10 — Windows & Linux
 
 A desktop tool for discovering and managing Axis IP cameras on your local network.
-Built with Avalonia UI and MVVM (CommunityToolkit.Mvvm), with a switchable light/dark theme.
+Built with Avalonia UI 11.1 and MVVM (CommunityToolkit.Mvvm 8.3), with a switchable light/dark theme.
 
 ---
 
 ## Requirements
 
-- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
+- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
 - Linux: standard X11/Wayland desktop (no extra packages needed)
 - Windows: Windows 10/11
 
@@ -17,18 +17,17 @@ Built with Avalonia UI and MVVM (CommunityToolkit.Mvvm), with a switchable light
 ## Build & Run
 
 ```bash
-# Clone / extract the project, then:
-cd AxisManager
+# Run from the repo root
 
 # Run directly (development)
-dotnet run
+dotnet run --project AxisManager
 
 # Build a self-contained release
 # Windows:
-dotnet publish -c Release -r win-x64 --self-contained true -o ./publish/windows
+dotnet publish AxisManager -c Release -r win-x64 --self-contained true -o ./publish/windows
 
 # Linux:
-dotnet publish -c Release -r linux-x64 --self-contained true -o ./publish/linux
+dotnet publish AxisManager -c Release -r linux-x64 --self-contained true -o ./publish/linux
 ```
 
 The published output in `./publish/` is a single folder you can zip and distribute.
@@ -49,9 +48,19 @@ The published output in `./publish/` is a single folder you can zip and distribu
 - Camera must be on the same subnet
 - Or add cameras manually by IP
 
+### Connection flow
+When a camera is selected (or added), the app probes it before connecting:
+
+| Probe result | What the UI shows |
+|---|---|
+| Connected | Loads tabs immediately (auto-connect with saved credentials) |
+| NeedsSetup | Setup panel — prompts for a new password on factory-default cameras |
+| AuthFailed | Manual auth panel — enter credentials to retry |
+| Unreachable | Status bar error |
+
 ### Authentication
-- Uses HTTP Digest auth (Axis default)
-- Falls back to Basic auth over HTTPS if needed
+- Probes the camera without credentials first to detect factory-default state (`Axis-Setup` header)
+- Uses HTTP Digest auth (Axis default) for all authenticated requests
 - Self-signed certificate errors are suppressed (camera default)
 - Default credentials (username/password) can be saved in the **Settings** panel; with auto-connect enabled, selecting a camera connects automatically using them
 - Saved credentials are stored unencrypted in `%AppData%/AxisManager/settings.json`
@@ -68,13 +77,13 @@ AxisManager/
 ├── Assets/
 │   └── AppStyles.axaml        ← Light/dark theme + control styles
 ├── Models/
-│   └── CameraDevice.cs        ← Data models
+│   └── CameraDevice.cs        ← Data models (CameraDevice, StreamInfo, ParamEntry)
 ├── Services/
-│   ├── DiscoveryService.cs    ← mDNS scanner
-│   ├── VapixService.cs        ← VAPIX HTTP API client
+│   ├── DiscoveryService.cs    ← mDNS scanner (raw UDP/DNS, no library)
+│   ├── VapixService.cs        ← VAPIX HTTP client + Digest auth + probe logic
 │   └── SettingsService.cs     ← Default credentials (saved to %AppData%)
 ├── ViewModels/
-│   └── MainViewModel.cs       ← MVVM logic
+│   └── MainViewModel.cs       ← All UI logic (single ObservableObject)
 └── Views/
     ├── MainWindow.axaml        ← UI layout
     └── MainWindow.axaml.cs    ← Code-behind
