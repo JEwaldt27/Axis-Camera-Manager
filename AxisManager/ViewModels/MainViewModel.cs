@@ -88,6 +88,7 @@ public partial class MainViewModel : ObservableObject
 
     private VapixService? _vapix;
     private AppSettings   _settings;
+    private bool          _suppressSelectionChanged; // prevents re-entrancy when refreshing list
 
     // ── Constructor ────────────────────────────────────────────────────────
 
@@ -110,7 +111,7 @@ public partial class MainViewModel : ObservableObject
 
     partial void OnSelectedCameraChanged(CameraDevice? value)
     {
-        if (value is null) return;
+        if (value is null || _suppressSelectionChanged) return;
 
         // Reset all panels
         ShowManualAuth = false;
@@ -255,6 +256,13 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void UseDefaultPassword()
+    {
+        NewCamPassword  = DefaultPassword;
+        NewCamPassword2 = DefaultPassword;
+    }
+
+    [RelayCommand]
     private void OpenSetupInBrowser()
     {
         if (SelectedCamera is null) return;
@@ -332,9 +340,17 @@ public partial class MainViewModel : ObservableObject
         var idx = Cameras.IndexOf(camera);
         if (idx >= 0)
         {
-            Cameras.RemoveAt(idx);
-            Cameras.Insert(idx, camera);
-            SelectedCamera = camera;
+            _suppressSelectionChanged = true;
+            try
+            {
+                Cameras.RemoveAt(idx);
+                Cameras.Insert(idx, camera);
+                SelectedCamera = camera;
+            }
+            finally
+            {
+                _suppressSelectionChanged = false;
+            }
         }
     }
 
@@ -349,19 +365,13 @@ public partial class MainViewModel : ObservableObject
 
         try
         {
-            var found       = await DiscoveryService.ScanAsync(4);
-            var existingIps = Cameras.Select(c => c.Ip).ToHashSet();
+            Cameras.Clear();
 
-            var added = 0;
+            var found = await DiscoveryService.ScanAsync(4);
             foreach (var cam in found)
-                if (existingIps.Add(cam.Ip))
-                {
-                    Cameras.Add(cam);
-                    added++;
-                }
+                Cameras.Add(cam);
 
-            StatusText = $"Scan complete — {found.Count} device{(found.Count != 1 ? "s" : "")} " +
-                         $"found, {added} new";
+            StatusText = $"Scan complete — {found.Count} device{(found.Count != 1 ? "s" : "")} found";
         }
         catch (Exception ex)
         {

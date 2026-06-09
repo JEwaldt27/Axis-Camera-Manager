@@ -237,6 +237,11 @@
                       Command="{Binding CompleteSetupCommand}"
                       IsEnabled="{Binding !IsSettingUp}"
                       Padding="14,6"/>
+              <Button Content="USE DEFAULT PASSWORD"
+                      Classes="ghost"
+                      Command="{Binding UseDefaultPasswordCommand}"
+                      ToolTip.Tip="Fill both fields with your saved default password"
+                      Padding="14,6"/>
               <Button Content="OPEN IN BROWSER"
                       Classes="ghost"
                       Command="{Binding OpenSetupInBrowserCommand}"

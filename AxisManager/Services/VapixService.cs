@@ -4,7 +4,6 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using AxisManager.Models;
 
@@ -12,18 +11,20 @@ namespace AxisManager.Services;
 
 public enum ProbeResult
 {
-    Connected,       // Auth succeeded, camera is ready
-    NeedsSetup,      // Factory default — no password, setup wizard active
-    AuthFailed,      // Camera responded but credentials were wrong
-    Unreachable      // Could not connect at all
+    Connected,    // Ready — either no password needed or credentials worked
+    NeedsSetup,   // Factory default — no password set (Axis-Setup: vapix header)
+    AuthFailed,   // Has a password, credentials wrong
+    Unreachable   // Could not connect at all
 }
 
 public class VapixService : IDisposable
 {
-    private readonly HttpClient _http;
+    private readonly HttpClient _http;     // authenticated requests
+    private readonly HttpClient _rawHttp;  // credential-free probe requests
     private readonly string     _ip;
     private readonly string     _user;
     private readonly string     _pass;
+    private bool                _noAuth;   // true when camera has no password
 
     public VapixService(string ip, string username = "root", string password = "")
     {
@@ -31,72 +32,89 @@ public class VapixService : IDisposable
         _user = username;
         _pass = password;
 
+        // ── Main client: used for all authenticated VAPIX calls ────────────
         var handler = new HttpClientHandler
         {
             ServerCertificateCustomValidationCallback = (_, _, _, _) => true,
-            Credentials      = new NetworkCredential(username, password),
-            PreAuthenticate  = false,
+            Credentials       = new NetworkCredential(username, password),
+            PreAuthenticate   = false,
             AllowAutoRedirect = true,
         };
-
         _http = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(10) };
+
+        // ── Raw probe client: NO credentials, NO auto-redirect ─────────────
+        // The main HttpClientHandler with Credentials set will automatically
+        // retry a 401 with those credentials before returning the response —
+        // meaning we would never see the 401 or the Axis-Setup header.
+        // This separate client has no credentials so we get the raw 401 back.
+        var rawHandler = new HttpClientHandler
+        {
+            ServerCertificateCustomValidationCallback = (_, _, _, _) => true,
+            Credentials           = null,
+            UseDefaultCredentials = false,
+            PreAuthenticate       = false,
+            AllowAutoRedirect     = false,
+        };
+        _rawHttp = new HttpClient(rawHandler) { Timeout = TimeSpan.FromSeconds(8) };
     }
 
     // ── Setup Detection ────────────────────────────────────────────────────
 
     /// <summary>
-    /// Probes the camera to determine its setup state without throwing.
-    /// Returns a ProbeResult so the caller can decide what UI to show.
+    /// Probes the camera to determine its setup state.
+    ///
+    /// Official Axis detection method: a factory-default camera returns 401
+    /// with the response header  Axis-Setup: vapix  on any VAPIX call.
+    /// We use a credential-free HttpClient so the 401 is never auto-retried.
     /// </summary>
     public async Task<ProbeResult> ProbeAsync()
     {
         try
         {
-            // Step 1 — Try to reach the root page to detect setup wizard
-            var rootResp = await TryGetAsync($"http://{_ip}/");
-            if (rootResp is null)
-            {
-                // HTTP failed, try HTTPS
-                rootResp = await TryGetAsync($"https://{_ip}/");
-            }
+            var url  = $"http://{_ip}/axis-cgi/param.cgi?action=list&group=Brand";
+            var resp = await TryRawGetAsync(url);
 
-            if (rootResp is null)
+            if (resp is null)
+                resp = await TryRawGetAsync(url.Replace("http://", "https://"));
+
+            if (resp is null)
                 return ProbeResult.Unreachable;
 
-            var body = await rootResp.Content.ReadAsStringAsync();
-
-            // Step 2 — Detect setup wizard indicators
-            if (IsSetupWizard(rootResp, body))
+            // ── Official detection: Axis-Setup: vapix header ───────────────
+            // Present on 401 when no password has been set on the device.
+            if (HasAxisSetupHeader(resp))
                 return ProbeResult.NeedsSetup;
 
-            // Step 3 — Try param.cgi with no auth (factory default has no password)
-            var noAuthResp = await TryGetAsync(
-                $"http://{_ip}/axis-cgi/param.cgi?action=list&group=Brand");
-
-            if (noAuthResp?.IsSuccessStatusCode == true)
+            // ── 200 with no auth — very old firmware with blank password ────
+            if (resp.IsSuccessStatusCode)
             {
-                var paramBody = await noAuthResp.Content.ReadAsStringAsync();
-                if (paramBody.Contains("root.Brand"))
-                    return ProbeResult.Connected; // No password needed
-            }
-
-            // Step 4 — Try with provided credentials
-            try
-            {
-                var text = await GetWithDigestAsync(
-                    $"http://{_ip}/axis-cgi/param.cgi?action=list&group=Brand");
-                if (text.Contains("root.Brand"))
+                var body = await resp.Content.ReadAsStringAsync();
+                if (body.Contains("root.Brand"))
+                {
+                    _noAuth = true;
                     return ProbeResult.Connected;
+                }
             }
-            catch (HttpRequestException ex) when (
-                ex.StatusCode == HttpStatusCode.Unauthorized ||
-                ex.StatusCode == HttpStatusCode.Forbidden)
+
+            // ── 401 without Axis-Setup — camera has a password, try creds ──
+            if (resp.StatusCode == HttpStatusCode.Unauthorized)
             {
-                return ProbeResult.AuthFailed;
-            }
-            catch (Exception ex) when (IsAuthException(ex))
-            {
-                return ProbeResult.AuthFailed;
+                try
+                {
+                    var text = await FetchWithAuth(url);
+                    if (text.Contains("root.Brand"))
+                        return ProbeResult.Connected;
+                }
+                catch (HttpRequestException ex)
+                    when (ex.StatusCode is HttpStatusCode.Unauthorized
+                                       or HttpStatusCode.Forbidden)
+                {
+                    return ProbeResult.AuthFailed;
+                }
+                catch (Exception ex) when (IsAuthMessage(ex.Message))
+                {
+                    return ProbeResult.AuthFailed;
+                }
             }
 
             return ProbeResult.AuthFailed;
@@ -107,95 +125,81 @@ public class VapixService : IDisposable
         }
     }
 
-    private static bool IsSetupWizard(HttpResponseMessage resp, string body)
+    private static bool HasAxisSetupHeader(HttpResponseMessage resp)
     {
-        // Axis setup wizard indicators
-        var lower = body.ToLowerInvariant();
-        if (lower.Contains("setup wizard") ||
-            lower.Contains("create account") ||
-            lower.Contains("set password") ||
-            lower.Contains("initial configuration") ||
-            lower.Contains("\"/setup\"") ||
-            lower.Contains("welcome to axis"))
-            return true;
-
-        // Some firmware redirects to /setup or /config on first boot
-        var url = resp.RequestMessage?.RequestUri?.AbsolutePath ?? "";
-        if (url.StartsWith("/setup", StringComparison.OrdinalIgnoreCase) ||
-            url.StartsWith("/config", StringComparison.OrdinalIgnoreCase))
-            return true;
-
-        // Axis OS 10+ uses a React-based wizard that checks for specific meta tags
-        if (lower.Contains("axis-setup") || lower.Contains("axissetup"))
-            return true;
-
+        if (resp.Headers.TryGetValues("Axis-Setup", out var vals))
+            foreach (var v in vals)
+                if (v.Contains("vapix", StringComparison.OrdinalIgnoreCase))
+                    return true;
         return false;
     }
 
-    private async Task<HttpResponseMessage?> TryGetAsync(string url)
-    {
-        try
-        {
-            var req  = new HttpRequestMessage(HttpMethod.Get, url);
-            var resp = await _http.SendAsync(req);
-            return resp;
-        }
-        catch
-        {
-            return null;
-        }
-    }
+    // ── First-Time Setup — Set Initial Password ────────────────────────────
 
-    // ── Setup Wizard — Set Initial Password ───────────────────────────────
-
-    /// <summary>
-    /// Calls the Axis first-boot API to set the root password on a factory-default camera.
-    /// Works on AXIS OS 7.x through 11.x.
-    /// </summary>
     public async Task SetInitialPasswordAsync(string newPassword)
     {
-        // Modern AXIS OS (9+): JSON API
-        try
-        {
-            await SetInitialPasswordJsonAsync(newPassword);
-            return;
-        }
+        // AXIS OS 11.6+: root user doesn't exist, create a new user
+        try { await CreateInitialUserModernAsync("root", newPassword); return; }
         catch { }
 
-        // Legacy AXIS OS (7-8): CGI form post
-        await SetInitialPasswordLegacyAsync(newPassword);
+        // AXIS OS 9–11.5: set root password via JSON API
+        try { await SetRootPasswordJsonAsync(newPassword); return; }
+        catch { }
+
+        // AXIS OS 7–8: legacy CGI
+        await SetRootPasswordLegacyAsync(newPassword);
     }
 
-    private async Task SetInitialPasswordJsonAsync(string newPassword)
+    private async Task CreateInitialUserModernAsync(string username, string password)
     {
-        var json = $$$"""
+        var json = $$"""
+        {
+            "apiVersion": "1.0",
+            "method": "createUser",
+            "params": {
+                "username": "{{username}}",
+                "password": "{{password}}",
+                "privileges": ["administrator", "operator", "viewer"]
+            }
+        }
+        """;
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+        // Use _rawHttp — no password exists yet so no auth needed
+        var resp = await _rawHttp.PostAsync(
+            $"http://{_ip}/axis-cgi/basicdeviceinfo.cgi", content);
+        resp.EnsureSuccessStatusCode();
+        var body = await resp.Content.ReadAsStringAsync();
+        if (body.Contains("\"error\""))
+            throw new InvalidOperationException($"CreateUser failed: {body}");
+    }
+
+    private async Task SetRootPasswordJsonAsync(string password)
+    {
+        var json = $$"""
         {
             "apiVersion": "1.0",
             "method": "setPrimaryCredentials",
             "params": {
-                "credentials": [{
-                    "role": "root",
-                    "password": "{{{newPassword}}}"
-                }]
+                "credentials": [{"role": "root", "password": "{{password}}"}]
             }
         }
         """;
-
         var content = new StringContent(json, Encoding.UTF8, "application/json");
-        var resp = await _http.PostAsync(
+        // Use _rawHttp — no password exists yet
+        var resp = await _rawHttp.PostAsync(
             $"http://{_ip}/axis-cgi/usermanagement.cgi", content);
         resp.EnsureSuccessStatusCode();
     }
 
-    private async Task SetInitialPasswordLegacyAsync(string newPassword)
+    private async Task SetRootPasswordLegacyAsync(string password)
     {
-        // Older firmware: POST to /operator/basic.shtml or param.cgi
-        var encoded = Uri.EscapeDataString(newPassword);
+        var enc = Uri.EscapeDataString(password);
         var url = $"http://{_ip}/axis-cgi/pwdgrp.cgi" +
-                  $"?action=add&grp=root&sgrp=root:admin:operator:viewer:ptz" +
-                  $"&pwd={encoded}&rpwd={encoded}&user=root&comment=";
-
-        var resp = await _http.GetAsync(url);
+                  $"?action=add&user=root&grp=root" +
+                  $"&sgrp=admin:operator:viewer:ptz" +
+                  $"&pwd={enc}&rpwd={enc}";
+        // Use _rawHttp — no auth needed on factory default
+        var resp = await _rawHttp.GetAsync(url);
         resp.EnsureSuccessStatusCode();
     }
 
@@ -207,15 +211,15 @@ public class VapixService : IDisposable
             ? null
             : new Dictionary<string, string> { ["group"] = group });
 
-        var text = await GetWithDigestAsync(url);
+        var text = _noAuth
+            ? await FetchNoAuth(url)
+            : await FetchWithAuth(url);
+
         return ParseParams(text);
     }
 
     public async Task<string> SetParamsAsync(Dictionary<string, string> values)
-    {
-        var url = BuildParamUrl("update", values);
-        return await GetWithDigestAsync(url);
-    }
+        => await FetchWithAuth(BuildParamUrl("update", values));
 
     public async Task SetStaticIpAsync(string ip, string subnet, string gateway,
                                         string? hostname = null)
@@ -232,28 +236,28 @@ public class VapixService : IDisposable
     }
 
     public async Task SetDhcpAsync()
-    {
-        await SetParamsAsync(new Dictionary<string, string>
-        {
-            ["Network.BootProto"] = "dhcp"
-        });
-    }
+        => await SetParamsAsync(new Dictionary<string, string>
+            { ["Network.BootProto"] = "dhcp" });
 
     public async Task RestartAsync()
     {
-        try
-        {
-            await GetWithDigestAsync($"http://{_ip}/axis-cgi/restart.cgi");
-        }
-        catch { /* camera drops connection on restart — expected */ }
+        try { await FetchWithAuth($"http://{_ip}/axis-cgi/restart.cgi"); }
+        catch { }
     }
 
     public string GetSnapshotUrl() => $"http://{_ip}/axis-cgi/jpg/image.cgi";
     public string GetWebUrl()      => $"http://{_ip}";
 
-    // ── Digest Auth ────────────────────────────────────────────────────────
+    // ── HTTP Fetching ──────────────────────────────────────────────────────
 
-    private async Task<string> GetWithDigestAsync(string url)
+    private async Task<string> FetchNoAuth(string url)
+    {
+        var resp = await _rawHttp.GetAsync(url);
+        resp.EnsureSuccessStatusCode();
+        return await resp.Content.ReadAsStringAsync();
+    }
+
+    private async Task<string> FetchWithAuth(string url)
     {
         var req1 = new HttpRequestMessage(HttpMethod.Get, url);
         HttpResponseMessage resp1;
@@ -263,10 +267,13 @@ public class VapixService : IDisposable
         }
         catch
         {
-            url  = url.Replace("http://", "https://");
-            req1 = new HttpRequestMessage(HttpMethod.Get, url);
+            url   = url.Replace("http://", "https://");
+            req1  = new HttpRequestMessage(HttpMethod.Get, url);
             resp1 = await _http.SendAsync(req1);
         }
+
+        if (resp1.IsSuccessStatusCode)
+            return await resp1.Content.ReadAsStringAsync();
 
         if (resp1.StatusCode == HttpStatusCode.Unauthorized)
         {
@@ -285,11 +292,8 @@ public class VapixService : IDisposable
             return await resp2.Content.ReadAsStringAsync();
         }
 
-        if (resp1.IsSuccessStatusCode)
-            return await resp1.Content.ReadAsStringAsync();
-
         // Basic auth fallback
-        var req3 = new HttpRequestMessage(HttpMethod.Get, url);
+        var req3  = new HttpRequestMessage(HttpMethod.Get, url);
         var creds = Convert.ToBase64String(
             Encoding.UTF8.GetBytes($"{_user}:{_pass}"));
         req3.Headers.Authorization = new AuthenticationHeaderValue("Basic", creds);
@@ -302,6 +306,15 @@ public class VapixService : IDisposable
         resp3.EnsureSuccessStatusCode();
         return await resp3.Content.ReadAsStringAsync();
     }
+
+    // Non-throwing GET using the raw (no-credential) client
+    private async Task<HttpResponseMessage?> TryRawGetAsync(string url)
+    {
+        try { return await _rawHttp.GetAsync(url); }
+        catch { return null; }
+    }
+
+    // ── Digest ─────────────────────────────────────────────────────────────
 
     private string BuildDigestHeader(string wwwAuth, string url, string method)
     {
@@ -316,16 +329,16 @@ public class VapixService : IDisposable
 
         if (qop?.Contains("auth") == true)
         {
-            var response = Md5Hex($"{ha1}:{nonce}:{nc}:{cnonce}:auth:{ha2}");
+            var r = Md5Hex($"{ha1}:{nonce}:{nc}:{cnonce}:auth:{ha2}");
             return $"Digest username=\"{_user}\", realm=\"{realm}\", " +
                    $"nonce=\"{nonce}\", uri=\"{uri}\", qop=auth, nc={nc}, " +
-                   $"cnonce=\"{cnonce}\", response=\"{response}\"";
+                   $"cnonce=\"{cnonce}\", response=\"{r}\"";
         }
         else
         {
-            var response = Md5Hex($"{ha1}:{nonce}:{ha2}");
+            var r = Md5Hex($"{ha1}:{nonce}:{ha2}");
             return $"Digest username=\"{_user}\", realm=\"{realm}\", " +
-                   $"nonce=\"{nonce}\", uri=\"{uri}\", response=\"{response}\"";
+                   $"nonce=\"{nonce}\", uri=\"{uri}\", response=\"{r}\"";
         }
     }
 
@@ -345,11 +358,11 @@ public class VapixService : IDisposable
         return Convert.ToHexString(bytes).ToLowerInvariant();
     }
 
-    private static bool IsAuthException(Exception ex)
+    private static bool IsAuthMessage(string msg)
     {
-        var msg = ex.Message.ToLowerInvariant();
-        return msg.Contains("401") || msg.Contains("unauthorized") ||
-               msg.Contains("403") || msg.Contains("forbidden");
+        var l = msg.ToLowerInvariant();
+        return l.Contains("401") || l.Contains("unauthorized") ||
+               l.Contains("403") || l.Contains("forbidden");
     }
 
     private string BuildParamUrl(string action, Dictionary<string, string>? extra = null)
@@ -375,5 +388,9 @@ public class VapixService : IDisposable
         return result;
     }
 
-    public void Dispose() => _http.Dispose();
+    public void Dispose()
+    {
+        _http.Dispose();
+        _rawHttp.Dispose();
+    }
 }
