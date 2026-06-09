@@ -515,7 +515,7 @@
                  Classes="dim" FontSize="9"
                  VerticalAlignment="Center" Margin="16,0"/>
       <TextBlock Grid.Column="1"
-                 Text="AXIS Camera Manager  ·  .NET 8 / Avalonia"
+                 Text="AXIS Camera Manager  ·  .NET 10 / Avalonia"
                  Classes="dim" FontSize="9"
                  VerticalAlignment="Center" Margin="0,0,16,0"/>
     </Grid>

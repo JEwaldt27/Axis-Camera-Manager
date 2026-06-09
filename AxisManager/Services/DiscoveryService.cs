@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
+using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -27,9 +29,25 @@ public static class DiscoveryService
     public static Task<List<CameraDevice>> ScanAsync(int timeoutSeconds = 4)
         => Task.Run(() => Scan(timeoutSeconds));
 
+    private static HashSet<string> GetLocalIpAddresses()
+    {
+        var ips = new HashSet<string>();
+        foreach (var iface in NetworkInterface.GetAllNetworkInterfaces())
+        {
+            if (iface.OperationalStatus != OperationalStatus.Up) continue;
+            foreach (var addr in iface.GetIPProperties().UnicastAddresses)
+            {
+                if (addr.Address.AddressFamily == AddressFamily.InterNetwork)
+                    ips.Add(addr.Address.ToString());
+            }
+        }
+        return ips;
+    }
+
     private static List<CameraDevice> Scan(int timeoutSeconds)
     {
-        var found = new Dictionary<string, CameraDevice>();
+        var found   = new Dictionary<string, CameraDevice>();
+        var localIps = GetLocalIpAddresses();
 
         using var sock = new Socket(AddressFamily.InterNetwork,
                                     SocketType.Dgram,
@@ -73,8 +91,9 @@ public static class DiscoveryService
                 int len = sock.ReceiveFrom(buf, ref remote);
                 var ip = ((IPEndPoint)remote).Address.ToString();
 
-                // Skip link-local
+                // Skip link-local and this machine's own addresses
                 if (ip.StartsWith("169.254")) continue;
+                if (localIps.Contains(ip)) continue;
 
                 if (!found.ContainsKey(ip))
                 {

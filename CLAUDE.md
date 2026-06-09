@@ -2,21 +2,11 @@
 
 Guidance for working in this repository.
 
-## Resume this Claude Code session
-
-Much of the current state (docs, the light/dark theme feature) was built in a Claude Code session. To resume it with full context:
-
-```bash
-claude --resume 00b2cc72-486d-4f52-9a07-4b0c7a4a6a44
-```
-
-> Note: Claude Code (CLI) resumes by session ID, not a web URL — run the command above from this repo on the same machine where the session was created (transcript: `~/.claude/projects/C--Users-james-Desktop-AxisManager/`).
-
 ## What this is
 
 **AxisManager** is a cross-platform desktop app for discovering and managing Axis IP cameras on a local network. It scans for cameras over mDNS, connects to them via Axis's VAPIX HTTP API, and exposes their info, network config, stream URLs, and full parameter set through a tabbed GUI.
 
-- **Stack:** .NET 8, Avalonia UI 11.1, MVVM via CommunityToolkit.Mvvm 8.3
+- **Stack:** .NET 10, Avalonia UI 11.1, MVVM via CommunityToolkit.Mvvm 8.3
 - **Targets:** Windows 10/11 and Linux (X11/Wayland)
 - **Output type:** `WinExe` (desktop app, no console window)
 

@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "PowerShell(dotnet build *)"
+      "PowerShell(dotnet build *)",
+      "Bash(chmod +x *)",
+      "Bash(\"/home/jewaldt/RiderProjects/Axis-Camera-Manager/AxisManager/bin/Debug/net10.0/AxisManager\")",
+      "Bash(echo \"exit: $?\")",
+      "Bash(/home/jewaldt/.dotnet/dotnet *)",
+      "Bash(DOTNET_ROOT=/home/jewaldt/.dotnet \"/home/jewaldt/RiderProjects/Axis-Camera-Manager/AxisManager/bin/Debug/net10.0/AxisManager\")",
+      "Bash(dotnet build *)"
     ]
   }
 }
