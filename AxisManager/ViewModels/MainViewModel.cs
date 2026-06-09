@@ -25,67 +25,69 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty] private string _username = "root";
     [ObservableProperty] private string _password = "";
-    [ObservableProperty] private bool _isConnected;
-    [ObservableProperty] private bool _isConnecting;
-    [ObservableProperty] private string _connectionStatus = "●";
+    [ObservableProperty] private bool   _isConnected;
+    [ObservableProperty] private bool   _isConnecting;
+    [ObservableProperty] private string _connectionStatus      = "●";
     [ObservableProperty] private string _connectionStatusClass = "dim";
 
-    // ── Auth failure state ─────────────────────────────────────────────────
+    // ── Auth / Setup UI state ──────────────────────────────────────────────
 
-    [ObservableProperty] private bool _showManualAuth;
+    [ObservableProperty] private bool   _showManualAuth;
     [ObservableProperty] private string _authErrorText = "";
+
+    // Shown when camera is detected as factory-default (needs initial setup)
+    [ObservableProperty] private bool   _showSetupPanel;
+    [ObservableProperty] private string _newCamPassword  = "";
+    [ObservableProperty] private string _newCamPassword2 = "";
+    [ObservableProperty] private string _setupErrorText  = "";
+    [ObservableProperty] private bool   _isSettingUp;
 
     // ── Default credentials (Settings panel) ──────────────────────────────
 
     [ObservableProperty] private string _defaultUsername = "root";
     [ObservableProperty] private string _defaultPassword = "";
-    [ObservableProperty] private bool _autoConnect = true;
-    [ObservableProperty] private bool _showSettings;
+    [ObservableProperty] private bool   _autoConnect     = true;
+    [ObservableProperty] private bool   _showSettings;
 
     // ── Theme ──────────────────────────────────────────────────────────────
 
     [ObservableProperty] private bool _isLightMode;
-
-    // ☀ when in light mode (click → go dark), 🌙 when in dark mode (click → go light)
     public string ThemeToggleGlyph => IsLightMode ? "☀" : "🌙";
 
     // ── Info tab ───────────────────────────────────────────────────────────
 
-    [ObservableProperty] private string _infoModel = "—";
-    [ObservableProperty] private string _infoSerial = "—";
+    [ObservableProperty] private string _infoModel    = "—";
+    [ObservableProperty] private string _infoSerial   = "—";
     [ObservableProperty] private string _infoFirmware = "—";
-    [ObservableProperty] private string _infoSoc = "—";
-    [ObservableProperty] private string _infoMac = "—";
+    [ObservableProperty] private string _infoSoc      = "—";
+    [ObservableProperty] private string _infoMac      = "—";
     [ObservableProperty] private string _infoHostname = "—";
-    [ObservableProperty] private string _infoStreams = "—";
-    [ObservableProperty] private string _infoStorage = "—";
+    [ObservableProperty] private string _infoStreams   = "—";
+    [ObservableProperty] private string _infoStorage  = "—";
 
     // ── Network tab ────────────────────────────────────────────────────────
 
-    [ObservableProperty] private string _curIp = "—";
+    [ObservableProperty] private string _curIp     = "—";
     [ObservableProperty] private string _curSubnet = "—";
-    [ObservableProperty] private string _curGw = "—";
-    [ObservableProperty] private string _curMode = "—";
+    [ObservableProperty] private string _curGw     = "—";
+    [ObservableProperty] private string _curMode   = "—";
 
-    [ObservableProperty] private string _newIp = "";
-    [ObservableProperty] private string _newSubnet = "255.255.255.0";
-    [ObservableProperty] private string _newGw = "";
+    [ObservableProperty] private string _newIp       = "";
+    [ObservableProperty] private string _newSubnet   = "255.255.255.0";
+    [ObservableProperty] private string _newGw       = "";
     [ObservableProperty] private string _newHostname = "";
 
-    // ── Streams tab ────────────────────────────────────────────────────────
+    // ── Streams / Params tabs ──────────────────────────────────────────────
 
-    [ObservableProperty] private ObservableCollection<StreamInfo> _streams = [];
-
-    // ── Params tab ─────────────────────────────────────────────────────────
-
-    [ObservableProperty] private ObservableCollection<ParamEntry> _allParams = [];
-    [ObservableProperty] private ObservableCollection<ParamEntry> _filteredParams = [];
+    [ObservableProperty] private ObservableCollection<StreamInfo>  _streams       = [];
+    [ObservableProperty] private ObservableCollection<ParamEntry>  _allParams     = [];
+    [ObservableProperty] private ObservableCollection<ParamEntry>  _filteredParams= [];
     [ObservableProperty] private string _paramFilter = "";
 
     partial void OnParamFilterChanged(string value) => ApplyParamFilter();
 
     private VapixService? _vapix;
-    private AppSettings _settings;
+    private AppSettings   _settings;
 
     // ── Constructor ────────────────────────────────────────────────────────
 
@@ -94,7 +96,7 @@ public partial class MainViewModel : ObservableObject
         _settings = SettingsService.Load();
         DefaultUsername = _settings.DefaultUsername;
         DefaultPassword = _settings.DefaultPassword;
-        AutoConnect = _settings.AutoConnect;
+        AutoConnect     = _settings.AutoConnect;
 
         Username = DefaultUsername;
         Password = DefaultPassword;
@@ -104,31 +106,180 @@ public partial class MainViewModel : ObservableObject
         ApplyTheme();
     }
 
-    // ── Selection changed — attempt auto-connect ───────────────────────────
+    // ── Camera selected ────────────────────────────────────────────────────
 
     partial void OnSelectedCameraChanged(CameraDevice? value)
     {
         if (value is null) return;
 
+        // Reset all panels
         ShowManualAuth = false;
-        AuthErrorText = "";
+        ShowSetupPanel = false;
+        AuthErrorText  = "";
+        SetupErrorText = "";
+        NewCamPassword  = "";
+        NewCamPassword2 = "";
+
         Username = DefaultUsername;
         Password = DefaultPassword;
 
         if (AutoConnect)
-            _ = TryAutoConnectAsync(value);
+            _ = ProbeAndConnectAsync(value);
     }
 
-    private async Task TryAutoConnectAsync(CameraDevice camera)
+    // ── Probe → decide what to show ────────────────────────────────────────
+
+    private async Task ProbeAndConnectAsync(CameraDevice camera)
     {
-        IsConnecting = true;
-        IsConnected = false;
-        ConnectionStatus = "●";
+        IsConnecting          = true;
+        IsConnected           = false;
+        ConnectionStatus      = "●";
         ConnectionStatusClass = "warning";
-        StatusText = $"Connecting to {camera.Ip} with default credentials…";
+        StatusText            = $"Probing {camera.Ip}…";
 
         _vapix?.Dispose();
         _vapix = new VapixService(camera.Ip, DefaultUsername, DefaultPassword);
+
+        var result = await _vapix.ProbeAsync();
+
+        switch (result)
+        {
+            case ProbeResult.Connected:
+                // Either no-password camera or default creds worked
+                try
+                {
+                    var p = await _vapix.GetParamsAsync();
+                    OnConnectSuccess(camera, p);
+                }
+                catch (Exception ex)
+                {
+                    SetConnectFailed(camera, ex);
+                }
+                break;
+
+            case ProbeResult.NeedsSetup:
+                // Brand new camera — show setup wizard panel
+                IsConnecting          = false;
+                IsConnected           = false;
+                ConnectionStatus      = "●";
+                ConnectionStatusClass = "warning";
+                ShowSetupPanel        = true;
+                ShowManualAuth        = false;
+                camera.SetupState     = CameraSetupState.NeedsSetup;
+                camera.Status         = "Needs Setup";
+                RefreshCameraInList(camera);
+                StatusText = $"New camera detected at {camera.Ip}  —  set a password to continue";
+                break;
+
+            case ProbeResult.AuthFailed:
+                // Camera has a password, default creds didn't work
+                IsConnecting          = false;
+                IsConnected           = false;
+                ConnectionStatus      = "●";
+                ConnectionStatusClass = "danger";
+                ShowManualAuth        = true;
+                ShowSetupPanel        = false;
+                camera.SetupState     = CameraSetupState.NeedsAuth;
+                AuthErrorText         = "Default credentials failed  —  enter credentials below";
+                StatusText            = $"Auth required for {camera.Ip}";
+                break;
+
+            case ProbeResult.Unreachable:
+                IsConnecting          = false;
+                ConnectionStatus      = "●";
+                ConnectionStatusClass = "danger";
+                StatusText            = $"Cannot reach {camera.Ip}  —  check connection";
+                break;
+        }
+    }
+
+    // ── First-time setup — set initial password ────────────────────────────
+
+    [RelayCommand]
+    private async Task CompleteSetupAsync()
+    {
+        if (SelectedCamera is null || _vapix is null) return;
+
+        SetupErrorText = "";
+
+        if (string.IsNullOrWhiteSpace(NewCamPassword))
+        {
+            SetupErrorText = "Password cannot be empty";
+            return;
+        }
+        if (NewCamPassword != NewCamPassword2)
+        {
+            SetupErrorText = "Passwords do not match";
+            return;
+        }
+        if (NewCamPassword.Length < 6)
+        {
+            SetupErrorText = "Password must be at least 6 characters";
+            return;
+        }
+
+        IsSettingUp = true;
+        StatusText  = "Setting initial password…";
+
+        var camera = SelectedCamera;
+
+        try
+        {
+            await _vapix.SetInitialPasswordAsync(NewCamPassword);
+
+            // Now connect with the new password
+            _vapix.Dispose();
+            _vapix = new VapixService(camera.Ip, "root", NewCamPassword);
+
+            // Brief wait for camera to apply credentials
+            await Task.Delay(1500);
+
+            var p = await _vapix.GetParamsAsync();
+
+            ShowSetupPanel      = false;
+            camera.SetupState   = CameraSetupState.Ready;
+            NewCamPassword      = "";
+            NewCamPassword2     = "";
+
+            OnConnectSuccess(camera, p);
+        }
+        catch (Exception ex)
+        {
+            SetupErrorText = $"Setup failed: {ex.Message}";
+            StatusText     = "Setup failed — try opening the web interface manually";
+        }
+        finally
+        {
+            IsSettingUp = false;
+        }
+    }
+
+    [RelayCommand]
+    private void OpenSetupInBrowser()
+    {
+        if (SelectedCamera is null) return;
+        OpenUrl($"http://{SelectedCamera.Ip}");
+    }
+
+    // ── Manual connect (when default creds fail) ───────────────────────────
+
+    [RelayCommand]
+    private async Task ConnectAsync()
+    {
+        if (SelectedCamera is null) return;
+
+        IsConnecting          = true;
+        IsConnected           = false;
+        ConnectionStatus      = "●";
+        ConnectionStatusClass = "warning";
+        ShowManualAuth        = false;
+        AuthErrorText         = "";
+        StatusText            = $"Connecting to {SelectedCamera.Ip}…";
+
+        _vapix?.Dispose();
+        _vapix = new VapixService(SelectedCamera.Ip, Username, Password);
+
+        var camera = SelectedCamera;
 
         try
         {
@@ -137,19 +288,57 @@ public partial class MainViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            IsConnecting = false;
-            IsConnected = false;
-            ConnectionStatus = "●";
-            ConnectionStatusClass = "danger";
-            ShowManualAuth = true;
-            AuthErrorText = IsAuthError(ex)
-                ? "Default credentials failed  —  enter credentials below"
-                : $"Connection error: {ex.Message}";
-            StatusText = $"Auto-connect failed for {camera.Ip}";
+            SetConnectFailed(camera, ex);
         }
     }
 
-    // ── Commands ───────────────────────────────────────────────────────────
+    private void SetConnectFailed(CameraDevice camera, Exception ex)
+    {
+        IsConnecting          = false;
+        ConnectionStatus      = "●";
+        ConnectionStatusClass = "danger";
+        ShowManualAuth        = true;
+        AuthErrorText         = IsAuthError(ex)
+            ? "Incorrect credentials  —  try again"
+            : $"Connection error: {ex.Message}";
+        StatusText = $"Connection failed: {ex.Message}";
+    }
+
+    private void OnConnectSuccess(
+        CameraDevice camera,
+        System.Collections.Generic.Dictionary<string, string> p)
+    {
+        PopulateFromParams(p, camera.Ip);
+
+        camera.Connected  = true;
+        camera.Status     = "Connected";
+        camera.SetupState = CameraSetupState.Ready;
+        camera.Name       = p.GetValueOrDefault("root.Brand.ProdShortName", "Axis Device");
+
+        RefreshCameraInList(camera);
+
+        IsConnected           = true;
+        IsConnecting          = false;
+        ShowManualAuth        = false;
+        ShowSetupPanel        = false;
+        AuthErrorText         = "";
+        ConnectionStatus      = "●";
+        ConnectionStatusClass = "success";
+        StatusText            = $"Connected  —  {InfoModel} @ {camera.Ip}";
+    }
+
+    private void RefreshCameraInList(CameraDevice camera)
+    {
+        var idx = Cameras.IndexOf(camera);
+        if (idx >= 0)
+        {
+            Cameras.RemoveAt(idx);
+            Cameras.Insert(idx, camera);
+            SelectedCamera = camera;
+        }
+    }
+
+    // ── Scan ───────────────────────────────────────────────────────────────
 
     [RelayCommand]
     private async Task ScanAsync()
@@ -160,7 +349,7 @@ public partial class MainViewModel : ObservableObject
 
         try
         {
-            var found = await DiscoveryService.ScanAsync(4);
+            var found       = await DiscoveryService.ScanAsync(4);
             var existingIps = Cameras.Select(c => c.Ip).ToHashSet();
 
             var added = 0;
@@ -180,7 +369,6 @@ public partial class MainViewModel : ObservableObject
         }
         finally
         {
-            // Always clear the flag so the Scan button re-enables, even on error.
             IsScanning = false;
         }
     }
@@ -193,79 +381,14 @@ public partial class MainViewModel : ObservableObject
         if (Cameras.Any(c => c.Ip == ip)) return;
 
         Cameras.Add(new CameraDevice { Ip = ip, Status = "Manual" });
-        ManualIp = "";
+        ManualIp   = "";
         StatusText = $"Added {ip}";
     }
 
-    [RelayCommand]
-    private async Task ConnectAsync()
-    {
-        if (SelectedCamera is null) return;
-
-        IsConnecting = true;
-        IsConnected = false;
-        ConnectionStatus = "●";
-        ConnectionStatusClass = "warning";
-        ShowManualAuth = false;
-        AuthErrorText = "";
-        StatusText = $"Connecting to {SelectedCamera.Ip}…";
-
-        _vapix?.Dispose();
-        _vapix = new VapixService(SelectedCamera.Ip, Username, Password);
-
-        var camera = SelectedCamera;
-
-        try
-        {
-            var p = await _vapix.GetParamsAsync();
-            OnConnectSuccess(camera, p);
-        }
-        catch (Exception ex)
-        {
-            IsConnecting = false;
-            ConnectionStatus = "●";
-            ConnectionStatusClass = "danger";
-            ShowManualAuth = true;
-            AuthErrorText = IsAuthError(ex)
-                ? "Incorrect credentials  —  try again"
-                : $"Connection error: {ex.Message}";
-            StatusText = $"Connection failed: {ex.Message}";
-        }
-    }
-
-    private void OnConnectSuccess(
-        CameraDevice camera,
-        System.Collections.Generic.Dictionary<string, string> p)
-    {
-        PopulateFromParams(p, camera.Ip);
-
-        camera.Connected = true;
-        camera.Status = "Connected";
-        camera.Name = p.GetValueOrDefault("root.Brand.ProdShortName", "Axis Device");
-
-        var idx = Cameras.IndexOf(camera);
-        if (idx >= 0)
-        {
-            Cameras.RemoveAt(idx);
-            Cameras.Insert(idx, camera);
-            SelectedCamera = camera;
-        }
-
-        IsConnected = true;
-        IsConnecting = false;
-        ShowManualAuth = false;
-        AuthErrorText = "";
-        ConnectionStatus = "●";
-        ConnectionStatusClass = "success";
-        StatusText = $"Connected  —  {InfoModel} @ {camera.Ip}";
-    }
-
-    // ── Settings commands ──────────────────────────────────────────────────
+    // ── Settings ───────────────────────────────────────────────────────────
 
     [RelayCommand]
     private void ToggleSettings() => ShowSettings = !ShowSettings;
-
-    // ── Theme ──────────────────────────────────────────────────────────────
 
     [RelayCommand]
     private void ToggleTheme() => IsLightMode = !IsLightMode;
@@ -274,7 +397,6 @@ public partial class MainViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(ThemeToggleGlyph));
         ApplyTheme();
-
         _settings.Theme = value ? "Light" : "Dark";
         SettingsService.Save(_settings);
     }
@@ -291,13 +413,13 @@ public partial class MainViewModel : ObservableObject
     {
         _settings.DefaultUsername = DefaultUsername;
         _settings.DefaultPassword = DefaultPassword;
-        _settings.AutoConnect = AutoConnect;
+        _settings.AutoConnect     = AutoConnect;
         SettingsService.Save(_settings);
 
-        Username = DefaultUsername;
-        Password = DefaultPassword;
+        Username     = DefaultUsername;
+        Password     = DefaultPassword;
         ShowSettings = false;
-        StatusText = "Default credentials saved";
+        StatusText   = "Default credentials saved";
     }
 
     [RelayCommand]
@@ -305,11 +427,11 @@ public partial class MainViewModel : ObservableObject
     {
         DefaultUsername = _settings.DefaultUsername;
         DefaultPassword = _settings.DefaultPassword;
-        AutoConnect = _settings.AutoConnect;
-        ShowSettings = false;
+        AutoConnect     = _settings.AutoConnect;
+        ShowSettings    = false;
     }
 
-    // ── Other commands ─────────────────────────────────────────────────────
+    // ── Network / device commands ──────────────────────────────────────────
 
     [RelayCommand]
     private async Task ApplyStaticIpAsync()
@@ -341,7 +463,7 @@ public partial class MainViewModel : ObservableObject
         {
             await _vapix.SetDhcpAsync();
             StatusText = "DHCP enabled  —  camera will request a new IP";
-            CurMode = "DHCP";
+            CurMode    = "DHCP";
         }
         catch (Exception ex) { StatusText = $"Error: {ex.Message}"; }
     }
@@ -401,25 +523,24 @@ public partial class MainViewModel : ObservableObject
     private void PopulateFromParams(
         System.Collections.Generic.Dictionary<string, string> p, string ip)
     {
-        InfoModel = G(p, "root.Brand.ProdFullName");
-        InfoSerial = G(p, "root.Properties.System.SerialNumber");
+        InfoModel    = G(p, "root.Brand.ProdFullName");
+        InfoSerial   = G(p, "root.Properties.System.SerialNumber");
         InfoFirmware = G(p, "root.Properties.Firmware.Version");
-        InfoSoc = G(p, "root.Properties.System.Soc");
-        InfoMac = G(p, "root.Network.eth0.MACAddress");
+        InfoSoc      = G(p, "root.Properties.System.Soc");
+        InfoMac      = G(p, "root.Network.eth0.MACAddress");
         InfoHostname = G(p, "root.Network.HostName");
-        var nv = G(p, "root.Properties.Image.NbrOfViews", "0");
-        InfoStreams = $"{nv} views";
-        InfoStorage = G(p, "root.Storage.S0.DiskID", "None");
+        InfoStreams   = $"{G(p, "root.Properties.Image.NbrOfViews", "0")} views";
+        InfoStorage  = G(p, "root.Storage.S0.DiskID", "None");
 
-        CurIp = G(p, "root.Network.IPAddress");
+        CurIp     = G(p, "root.Network.IPAddress");
         CurSubnet = G(p, "root.Network.SubnetMask");
-        CurGw = G(p, "root.Network.DefaultRouter");
-        CurMode = G(p, "root.Network.BootProto", "dhcp") == "dhcp" ? "DHCP" : "STATIC";
+        CurGw     = G(p, "root.Network.DefaultRouter");
+        CurMode   = G(p, "root.Network.BootProto", "dhcp") == "dhcp" ? "DHCP" : "STATIC";
 
-        NewIp = G(p, "root.Network.IPAddress", "");
-        NewSubnet = G(p, "root.Network.SubnetMask", "255.255.255.0");
-        NewGw = G(p, "root.Network.DefaultRouter", "");
-        NewHostname = G(p, "root.Network.HostName", "");
+        NewIp       = G(p, "root.Network.IPAddress",     "");
+        NewSubnet   = G(p, "root.Network.SubnetMask",    "255.255.255.0");
+        NewGw       = G(p, "root.Network.DefaultRouter", "");
+        NewHostname = G(p, "root.Network.HostName",      "");
 
         Streams.Clear();
         int nbViews = int.TryParse(
@@ -429,8 +550,8 @@ public partial class MainViewModel : ObservableObject
             var name = G(p, $"root.Image.I{i}.Name", $"Stream {i}");
             Streams.Add(new StreamInfo
             {
-                Index = i,
-                Name = name,
+                Index   = i,
+                Name    = name,
                 RtspUrl = $"rtsp://{ip}/axis-media/media.amp?camera={i + 1}",
                 HttpUrl = $"http://{ip}/axis-cgi/mjpg/video.cgi?camera={i + 1}",
             });
@@ -453,7 +574,7 @@ public partial class MainViewModel : ObservableObject
         var q = ParamFilter.ToLowerInvariant();
         foreach (var e in AllParams)
             if (string.IsNullOrEmpty(q) ||
-                e.Key.Contains(q, StringComparison.OrdinalIgnoreCase) ||
+                e.Key.Contains(q,   StringComparison.OrdinalIgnoreCase) ||
                 e.Value.Contains(q, StringComparison.OrdinalIgnoreCase))
                 FilteredParams.Add(e);
     }
@@ -464,7 +585,8 @@ public partial class MainViewModel : ObservableObject
         {
             if (OperatingSystem.IsWindows())
                 System.Diagnostics.Process.Start(
-                    new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
+                    new System.Diagnostics.ProcessStartInfo(url)
+                    { UseShellExecute = true });
             else if (OperatingSystem.IsLinux())
                 System.Diagnostics.Process.Start("xdg-open", url);
             else if (OperatingSystem.IsMacOS())

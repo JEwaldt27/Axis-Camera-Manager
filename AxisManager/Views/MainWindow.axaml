@@ -19,10 +19,8 @@
       <TextBlock Grid.Column="0" Text="◈ AXIS" Classes="title"
                  VerticalAlignment="Center" Margin="20,0,0,0"/>
       <TextBlock Grid.Column="1" Text="  CAMERA MANAGER"
-                 Classes="dim" FontSize="12"
-                 VerticalAlignment="Center"/>
+                 Classes="dim" FontSize="12" VerticalAlignment="Center"/>
 
-      <!-- Connection status -->
       <StackPanel Grid.Column="3" Orientation="Horizontal"
                   VerticalAlignment="Center" Margin="0,0,8,0" Spacing="8">
         <TextBlock Text="{Binding ConnectionStatus}"
@@ -34,7 +32,6 @@
                    Classes="dim" VerticalAlignment="Center"/>
       </StackPanel>
 
-      <!-- Theme toggle -->
       <Button Grid.Column="4" Content="{Binding ThemeToggleGlyph}"
               Classes="ghost"
               Command="{Binding ToggleThemeCommand}"
@@ -42,7 +39,6 @@
               FontSize="15" Padding="12,0"
               VerticalAlignment="Center"/>
 
-      <!-- Settings button -->
       <Button Grid.Column="5" Content="⚙"
               Classes="ghost"
               Command="{Binding ToggleSettingsCommand}"
@@ -124,10 +120,10 @@
       <Rectangle Grid.Column="1" Fill="{DynamicResource BorderBrush}" Width="1"/>
 
       <!-- ── Right Panel ── -->
-      <Grid Grid.Column="2" RowDefinitions="Auto,1,Auto,Auto,1,*"
+      <Grid Grid.Column="2" RowDefinitions="Auto,1,Auto,Auto,Auto,1,*"
             Background="{DynamicResource BgBrush}">
 
-        <!-- Camera header bar -->
+        <!-- Camera header -->
         <Grid Grid.Row="0" Background="{DynamicResource Bg2Brush}"
               ColumnDefinitions="*,Auto" MinHeight="60">
           <StackPanel Grid.Column="0" VerticalAlignment="Center"
@@ -149,52 +145,104 @@
 
         <Rectangle Grid.Row="1" Fill="{DynamicResource BorderBrush}" Height="1"/>
 
-        <!-- ── Settings Panel (slide in) ── -->
+        <!-- ── Settings Panel ── -->
         <Border Grid.Row="2"
                 Background="{DynamicResource Bg3Brush}"
                 Padding="16,14" Margin="16,10,16,0"
                 CornerRadius="4"
                 IsVisible="{Binding ShowSettings}">
           <StackPanel Spacing="10">
-
             <Grid ColumnDefinitions="*,Auto">
               <TextBlock Grid.Column="0" Text="DEFAULT CREDENTIALS"
                          Classes="section-header" VerticalAlignment="Center"/>
-              <TextBlock Grid.Column="1" Text="Saved to %APPDATA%\AxisManager\settings.json"
+              <TextBlock Grid.Column="1"
+                         Text="Saved to %APPDATA%\AxisManager\settings.json"
                          Classes="dim" FontSize="8" VerticalAlignment="Center"/>
             </Grid>
-
             <Grid ColumnDefinitions="Auto,8,160,24,Auto,8,160,24,Auto,8,Auto">
-              <!-- Username -->
               <TextBlock Grid.Column="0" Text="USERNAME" Classes="label"
                          VerticalAlignment="Center"/>
-              <TextBox Grid.Column="2" Text="{Binding DefaultUsername}"
-                       FontSize="10"/>
-
-              <!-- Password -->
+              <TextBox Grid.Column="2" Text="{Binding DefaultUsername}" FontSize="10"/>
               <TextBlock Grid.Column="4" Text="PASSWORD" Classes="label"
                          VerticalAlignment="Center"/>
               <TextBox Grid.Column="6" Text="{Binding DefaultPassword}"
                        PasswordChar="●" FontSize="10"/>
-
-              <!-- Auto-connect toggle -->
               <TextBlock Grid.Column="8" Text="AUTO-CONNECT" Classes="label"
                          VerticalAlignment="Center"/>
-              <CheckBox Grid.Column="10"
-                        IsChecked="{Binding AutoConnect}"
+              <CheckBox Grid.Column="10" IsChecked="{Binding AutoConnect}"
                         VerticalAlignment="Center"/>
             </Grid>
-
             <StackPanel Orientation="Horizontal" Spacing="8">
-              <Button Content="SAVE DEFAULTS"
-                      Classes="accent"
-                      Command="{Binding SaveSettingsCommand}"
-                      Padding="14,6"/>
-              <Button Content="CANCEL"
-                      Classes="ghost"
-                      Command="{Binding CancelSettingsCommand}"
-                      Padding="14,6"/>
+              <Button Content="SAVE DEFAULTS" Classes="accent"
+                      Command="{Binding SaveSettingsCommand}" Padding="14,6"/>
+              <Button Content="CANCEL" Classes="ghost"
+                      Command="{Binding CancelSettingsCommand}" Padding="14,6"/>
               <TextBlock Text="Changes apply to new connections"
+                         Classes="dim" FontSize="8"
+                         VerticalAlignment="Center" Margin="8,0,0,0"/>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <!-- ── First-Time Setup Panel ── -->
+        <Border Grid.Row="3"
+                Background="{DynamicResource Bg3Brush}"
+                BorderBrush="{DynamicResource WarningBrush}"
+                BorderThickness="0,0,0,2"
+                Padding="16,14" Margin="16,8,16,0"
+                CornerRadius="4"
+                IsVisible="{Binding ShowSetupPanel}">
+          <StackPanel Spacing="10">
+
+            <!-- Header -->
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <TextBlock Text="🆕" FontSize="16" VerticalAlignment="Center"/>
+              <StackPanel Spacing="2">
+                <TextBlock Text="NEW CAMERA DETECTED"
+                           Foreground="{DynamicResource WarningBrush}"
+                           FontSize="10" FontWeight="Bold"/>
+                <TextBlock Text="This camera has no password set. Create a password to secure it and continue."
+                           Classes="dim" FontSize="9"/>
+              </StackPanel>
+            </StackPanel>
+
+            <!-- Password fields -->
+            <Grid ColumnDefinitions="Auto,8,180,24,Auto,8,180">
+              <TextBlock Grid.Column="0" Text="NEW PASSWORD" Classes="label"
+                         VerticalAlignment="Center"/>
+              <TextBox Grid.Column="2"
+                       Text="{Binding NewCamPassword}"
+                       PasswordChar="●"
+                       Watermark="min. 6 characters"
+                       FontSize="10"/>
+              <TextBlock Grid.Column="4" Text="CONFIRM" Classes="label"
+                         VerticalAlignment="Center"/>
+              <TextBox Grid.Column="6"
+                       Text="{Binding NewCamPassword2}"
+                       PasswordChar="●"
+                       Watermark="repeat password"
+                       FontSize="10"/>
+            </Grid>
+
+            <!-- Error text -->
+            <TextBlock Text="{Binding SetupErrorText}"
+                       Foreground="{DynamicResource DangerBrush}"
+                       FontSize="9" FontWeight="Bold"
+                       IsVisible="{Binding SetupErrorText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+
+            <!-- Actions -->
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Button Content="SET PASSWORD &amp; CONNECT"
+                      Classes="accent"
+                      Command="{Binding CompleteSetupCommand}"
+                      IsEnabled="{Binding !IsSettingUp}"
+                      Padding="14,6"/>
+              <Button Content="OPEN IN BROWSER"
+                      Classes="ghost"
+                      Command="{Binding OpenSetupInBrowserCommand}"
+                      ToolTip.Tip="Opens the Axis web setup wizard in your browser"
+                      Padding="14,6"/>
+              <TextBlock Text="Setting up via browser is also supported"
                          Classes="dim" FontSize="8"
                          VerticalAlignment="Center" Margin="8,0,0,0"/>
             </StackPanel>
@@ -202,8 +250,8 @@
           </StackPanel>
         </Border>
 
-        <!-- ── Manual Auth Panel (shown on auth failure) ── -->
-        <Border Grid.Row="3"
+        <!-- ── Manual Auth Panel ── -->
+        <Border Grid.Row="4"
                 Background="{DynamicResource AuthBgBrush}"
                 BorderBrush="{DynamicResource DangerBrush}"
                 BorderThickness="0,0,0,2"
@@ -211,43 +259,36 @@
                 CornerRadius="4"
                 IsVisible="{Binding ShowManualAuth}">
           <StackPanel Spacing="8">
-
             <TextBlock Text="{Binding AuthErrorText}"
                        Foreground="{DynamicResource DangerBrush}"
                        FontSize="9" FontWeight="Bold"/>
-
             <Grid ColumnDefinitions="Auto,8,160,24,Auto,8,160,24,Auto">
               <TextBlock Grid.Column="0" Text="USERNAME" Classes="label"
                          VerticalAlignment="Center"/>
-              <TextBox Grid.Column="2" Text="{Binding Username}"
-                       FontSize="10"/>
-
+              <TextBox Grid.Column="2" Text="{Binding Username}" FontSize="10"/>
               <TextBlock Grid.Column="4" Text="PASSWORD" Classes="label"
                          VerticalAlignment="Center"/>
               <TextBox Grid.Column="6" Text="{Binding Password}"
                        PasswordChar="●" FontSize="10"/>
-
               <Button Grid.Column="8" Content="CONNECT"
                       Classes="accent"
                       Command="{Binding ConnectCommand}"
                       Padding="14,6" Margin="8,0,0,0"/>
             </Grid>
-
           </StackPanel>
         </Border>
 
-        <Rectangle Grid.Row="4" Fill="{DynamicResource BorderBrush}"
+        <Rectangle Grid.Row="5" Fill="{DynamicResource BorderBrush}"
                    Height="1" Margin="0,8,0,0"/>
 
         <!-- ── Tabs ── -->
-        <TabControl Grid.Row="5" Padding="0"
+        <TabControl Grid.Row="6" Padding="0"
                     Background="{DynamicResource BgBrush}">
 
           <!-- ═══ INFO TAB ═══ -->
           <TabItem Header="  INFO  ">
             <ScrollViewer Background="{DynamicResource BgBrush}">
               <StackPanel Margin="20" Spacing="16">
-
                 <Border Classes="card" Padding="16">
                   <StackPanel Spacing="14">
                     <Grid ColumnDefinitions="*,32,*">
@@ -295,20 +336,15 @@
                     </Grid>
                   </StackPanel>
                 </Border>
-
                 <StackPanel Orientation="Horizontal" Spacing="10">
-                  <Button Content="⬡  OPEN SNAPSHOT"
-                          Classes="ghost"
+                  <Button Content="⬡  OPEN SNAPSHOT" Classes="ghost"
                           Command="{Binding OpenSnapshotCommand}"
-                          IsEnabled="{Binding IsConnected}"
-                          Padding="14,8"/>
-                  <Button Content="⬡  WEB INTERFACE"
-                          Classes="ghost"
+                          IsEnabled="{Binding IsConnected}" Padding="14,8"/>
+                  <Button Content="⬡  WEB INTERFACE" Classes="ghost"
                           Command="{Binding OpenWebInterfaceCommand}"
                           IsEnabled="{Binding SelectedCamera, Converter={x:Static ObjectConverters.IsNotNull}}"
                           Padding="14,8"/>
                 </StackPanel>
-
               </StackPanel>
             </ScrollViewer>
           </TabItem>
@@ -317,7 +353,6 @@
           <TabItem Header="  NETWORK  ">
             <ScrollViewer Background="{DynamicResource BgBrush}">
               <StackPanel Margin="20" Spacing="14">
-
                 <TextBlock Text="CURRENT NETWORK CONFIG" Classes="section-header"/>
                 <Border Classes="card" Padding="16">
                   <StackPanel Spacing="12">
@@ -343,7 +378,6 @@
                     </Grid>
                   </StackPanel>
                 </Border>
-
                 <TextBlock Text="SET STATIC IP" Classes="section-header" Margin="0,6,0,0"/>
                 <Border Classes="card" Padding="16">
                   <StackPanel Spacing="12">
@@ -369,25 +403,17 @@
                     </Grid>
                   </StackPanel>
                 </Border>
-
                 <StackPanel Orientation="Horizontal" Spacing="10">
-                  <Button Content="⬡  APPLY STATIC IP"
-                          Classes="accent"
+                  <Button Content="⬡  APPLY STATIC IP" Classes="accent"
                           Command="{Binding ApplyStaticIpCommand}"
-                          IsEnabled="{Binding IsConnected}"
-                          Padding="16,8"/>
-                  <Button Content="⬡  SET DHCP"
-                          Classes="warning"
+                          IsEnabled="{Binding IsConnected}" Padding="16,8"/>
+                  <Button Content="⬡  SET DHCP" Classes="warning"
                           Command="{Binding ApplyDhcpCommand}"
-                          IsEnabled="{Binding IsConnected}"
-                          Padding="16,8"/>
-                  <Button Content="⬡  RESTART CAMERA"
-                          Classes="danger"
+                          IsEnabled="{Binding IsConnected}" Padding="16,8"/>
+                  <Button Content="⬡  RESTART CAMERA" Classes="danger"
                           Command="{Binding RestartCameraCommand}"
-                          IsEnabled="{Binding IsConnected}"
-                          Padding="16,8"/>
+                          IsEnabled="{Binding IsConnected}" Padding="16,8"/>
                 </StackPanel>
-
               </StackPanel>
             </ScrollViewer>
           </TabItem>
@@ -428,8 +454,7 @@
                                   Tag="{Binding RtspUrl}"
                                   Click="OnCopyRtspClick"/>
                           <Button Grid.Column="3" Content="COPY HTTP"
-                                  Classes="ghost" FontSize="8"
-                                  Padding="8,4"
+                                  Classes="ghost" FontSize="8" Padding="8,4"
                                   Tag="{Binding HttpUrl}"
                                   Click="OnCopyHttpClick"/>
                         </Grid>
@@ -448,17 +473,12 @@
                     Margin="16,12,16,8">
                 <TextBlock Grid.Column="0" Text="FILTER"
                            Classes="label" VerticalAlignment="Center"/>
-                <TextBox Grid.Column="2"
-                         Text="{Binding ParamFilter}"
-                         Watermark="Search parameters…"
-                         FontSize="10"/>
-                <Button Grid.Column="4" Content="REFRESH"
-                        Classes="ghost"
+                <TextBox Grid.Column="2" Text="{Binding ParamFilter}"
+                         Watermark="Search parameters…" FontSize="10"/>
+                <Button Grid.Column="4" Content="REFRESH" Classes="ghost"
                         Command="{Binding RefreshParamsCommand}"
-                        IsEnabled="{Binding IsConnected}"
-                        Padding="10,6"/>
+                        IsEnabled="{Binding IsConnected}" Padding="10,6"/>
               </Grid>
-
               <dg:DataGrid Grid.Row="1"
                            ItemsSource="{Binding FilteredParams}"
                            AutoGenerateColumns="False"
@@ -469,11 +489,9 @@
                            Margin="16,0,16,16">
                 <dg:DataGrid.Columns>
                   <dg:DataGridTextColumn Header="PARAMETER"
-                                         Binding="{Binding Key}"
-                                         Width="2*"/>
+                                         Binding="{Binding Key}" Width="2*"/>
                   <dg:DataGridTextColumn Header="VALUE"
-                                         Binding="{Binding Value}"
-                                         Width="*"/>
+                                         Binding="{Binding Value}" Width="*"/>
                 </dg:DataGrid.Columns>
               </dg:DataGrid>
             </Grid>
@@ -488,8 +506,7 @@
     <!-- ══ Status Bar ══ -->
     <Grid Grid.Row="4" Background="{DynamicResource BgBrush}"
           ColumnDefinitions="*,Auto">
-      <TextBlock Grid.Column="0"
-                 Text="{Binding StatusText}"
+      <TextBlock Grid.Column="0" Text="{Binding StatusText}"
                  Classes="dim" FontSize="9"
                  VerticalAlignment="Center" Margin="16,0"/>
       <TextBlock Grid.Column="1"
