@@ -12,7 +12,13 @@ public partial class MainWindow : Window
         InitializeComponent();
     }
 
-    // Clipboard helpers for stream buttons (called from AXAML Click events)
+    // Clipboard helpers for stream buttons and info/network fields (called from AXAML Click events)
+    private async void OnCopyFieldClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.Tag is string text)
+            await CopyTextAsync(text);
+    }
+
     private async void OnCopyRtspClick(object? sender, RoutedEventArgs e)
     {
         if (sender is Button btn && btn.Tag is string url)

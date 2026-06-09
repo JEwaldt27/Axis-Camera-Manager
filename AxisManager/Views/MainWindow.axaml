@@ -303,7 +303,12 @@
                       </StackPanel>
                       <StackPanel Grid.Column="2" Spacing="2">
                         <TextBlock Text="SERIAL NUMBER" Classes="label"/>
-                        <TextBlock Text="{Binding InfoSerial}" Classes="value"/>
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                          <TextBlock Text="{Binding InfoSerial}" Classes="value"/>
+                          <Button Content="⎘" Classes="ghost" FontSize="9" Padding="4,2"
+                                  Tag="{Binding InfoSerial}"
+                                  Click="OnCopyFieldClick"/>
+                        </StackPanel>
                       </StackPanel>
                     </Grid>
                     <Rectangle Fill="{DynamicResource BorderBrush}" Height="1"/>
@@ -321,7 +326,12 @@
                     <Grid ColumnDefinitions="*,32,*">
                       <StackPanel Grid.Column="0" Spacing="2">
                         <TextBlock Text="MAC ADDRESS" Classes="label"/>
-                        <TextBlock Text="{Binding InfoMac}" Classes="value"/>
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                          <TextBlock Text="{Binding InfoMac}" Classes="value"/>
+                          <Button Content="⎘" Classes="ghost" FontSize="9" Padding="4,2"
+                                  Tag="{Binding InfoMac}"
+                                  Click="OnCopyFieldClick"/>
+                        </StackPanel>
                       </StackPanel>
                       <StackPanel Grid.Column="2" Spacing="2">
                         <TextBlock Text="HOSTNAME" Classes="label"/>
@@ -364,7 +374,12 @@
                     <Grid ColumnDefinitions="*,32,*">
                       <StackPanel Grid.Column="0" Spacing="2">
                         <TextBlock Text="IP ADDRESS" Classes="label"/>
-                        <TextBlock Text="{Binding CurIp}" Classes="value"/>
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                          <TextBlock Text="{Binding CurIp}" Classes="value"/>
+                          <Button Content="⎘" Classes="ghost" FontSize="9" Padding="4,2"
+                                  Tag="{Binding CurIp}"
+                                  Click="OnCopyFieldClick"/>
+                        </StackPanel>
                       </StackPanel>
                       <StackPanel Grid.Column="2" Spacing="2">
                         <TextBlock Text="SUBNET MASK" Classes="label"/>

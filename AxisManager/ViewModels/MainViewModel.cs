@@ -86,9 +86,10 @@ public partial class MainViewModel : ObservableObject
 
     partial void OnParamFilterChanged(string value) => ApplyParamFilter();
 
-    private VapixService? _vapix;
-    private AppSettings   _settings;
-    private bool          _suppressSelectionChanged; // prevents re-entrancy when refreshing list
+    private VapixService?            _vapix;
+    private AppSettings              _settings;
+    private bool                     _suppressSelectionChanged;
+    private CancellationTokenSource  _probeCts = new();
 
     // ── Constructor ────────────────────────────────────────────────────────
 
@@ -113,6 +114,9 @@ public partial class MainViewModel : ObservableObject
     {
         if (value is null || _suppressSelectionChanged) return;
 
+        _probeCts.Cancel();
+        _probeCts = new CancellationTokenSource();
+
         // Reset all panels
         ShowManualAuth = false;
         ShowSetupPanel = false;
@@ -124,13 +128,15 @@ public partial class MainViewModel : ObservableObject
         Username = DefaultUsername;
         Password = DefaultPassword;
 
+        ClearDisplayFields();
+
         if (AutoConnect)
-            _ = ProbeAndConnectAsync(value);
+            _ = ProbeAndConnectAsync(value, _probeCts.Token);
     }
 
     // ── Probe → decide what to show ────────────────────────────────────────
 
-    private async Task ProbeAndConnectAsync(CameraDevice camera)
+    private async Task ProbeAndConnectAsync(CameraDevice camera, CancellationToken ct)
     {
         IsConnecting          = true;
         IsConnected           = false;
@@ -143,6 +149,8 @@ public partial class MainViewModel : ObservableObject
 
         var result = await _vapix.ProbeAsync();
 
+        if (ct.IsCancellationRequested) return;
+
         switch (result)
         {
             case ProbeResult.Connected:
@@ -150,11 +158,13 @@ public partial class MainViewModel : ObservableObject
                 try
                 {
                     var p = await _vapix.GetParamsAsync();
+                    if (ct.IsCancellationRequested) return;
                     OnConnectSuccess(camera, p);
                 }
                 catch (Exception ex)
                 {
-                    SetConnectFailed(camera, ex);
+                    if (!ct.IsCancellationRequested)
+                        SetConnectFailed(camera, ex);
                 }
                 break;
 
@@ -288,15 +298,18 @@ public partial class MainViewModel : ObservableObject
         _vapix = new VapixService(SelectedCamera.Ip, Username, Password);
 
         var camera = SelectedCamera;
+        var ct     = _probeCts.Token;
 
         try
         {
             var p = await _vapix.GetParamsAsync();
-            OnConnectSuccess(camera, p);
+            if (!ct.IsCancellationRequested)
+                OnConnectSuccess(camera, p);
         }
         catch (Exception ex)
         {
-            SetConnectFailed(camera, ex);
+            if (!ct.IsCancellationRequested)
+                SetConnectFailed(camera, ex);
         }
     }
 
@@ -338,19 +351,23 @@ public partial class MainViewModel : ObservableObject
     private void RefreshCameraInList(CameraDevice camera)
     {
         var idx = Cameras.IndexOf(camera);
-        if (idx >= 0)
+        if (idx < 0) return;
+
+        // Only restore selection to this camera if it is still the selected one.
+        // If the user has already clicked a different camera, don't override them.
+        var restoreSelection = SelectedCamera == camera;
+
+        _suppressSelectionChanged = true;
+        try
         {
-            _suppressSelectionChanged = true;
-            try
-            {
-                Cameras.RemoveAt(idx);
-                Cameras.Insert(idx, camera);
+            Cameras.RemoveAt(idx);
+            Cameras.Insert(idx, camera);
+            if (restoreSelection)
                 SelectedCamera = camera;
-            }
-            finally
-            {
-                _suppressSelectionChanged = false;
-            }
+        }
+        finally
+        {
+            _suppressSelectionChanged = false;
         }
     }
 
@@ -587,6 +604,33 @@ public partial class MainViewModel : ObservableObject
                 e.Key.Contains(q,   StringComparison.OrdinalIgnoreCase) ||
                 e.Value.Contains(q, StringComparison.OrdinalIgnoreCase))
                 FilteredParams.Add(e);
+    }
+
+    private void ClearDisplayFields()
+    {
+        InfoModel    = "—";
+        InfoSerial   = "—";
+        InfoFirmware = "—";
+        InfoSoc      = "—";
+        InfoMac      = "—";
+        InfoHostname = "—";
+        InfoStreams   = "—";
+        InfoStorage  = "—";
+        CurIp     = "—";
+        CurSubnet = "—";
+        CurGw     = "—";
+        CurMode   = "—";
+        NewIp       = "";
+        NewSubnet   = "255.255.255.0";
+        NewGw       = "";
+        NewHostname = "";
+        Streams.Clear();
+        AllParams.Clear();
+        FilteredParams.Clear();
+        IsConnected           = false;
+        IsConnecting          = false;
+        ConnectionStatus      = "●";
+        ConnectionStatusClass = "dim";
     }
 
     private static void OpenUrl(string url)
