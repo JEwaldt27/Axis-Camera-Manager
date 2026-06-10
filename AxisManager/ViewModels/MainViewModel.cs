@@ -42,6 +42,15 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private string _setupErrorText  = "";
     [ObservableProperty] private bool   _isSettingUp;
 
+    // ── Initialize All panel ───────────────────────────────────────────────
+
+    [ObservableProperty] private bool   _showInitAllPanel;
+    [ObservableProperty] private string _initAllPassword  = "";
+    [ObservableProperty] private string _initAllPassword2 = "";
+    [ObservableProperty] private string _initAllErrorText = "";
+    [ObservableProperty] private string _initAllProgress  = "";
+    [ObservableProperty] private bool   _isInitializingAll;
+
     // ── Default credentials (Settings panel) ──────────────────────────────
 
     [ObservableProperty] private string _defaultUsername = "root";
@@ -277,6 +286,98 @@ public partial class MainViewModel : ObservableObject
     {
         if (SelectedCamera is null) return;
         OpenUrl($"http://{SelectedCamera.Ip}");
+    }
+
+    // ── Initialize All ─────────────────────────────────────────────────────
+
+    [RelayCommand]
+    private void ShowInitAll()
+    {
+        InitAllPassword  = "";
+        InitAllPassword2 = "";
+        InitAllErrorText = "";
+        InitAllProgress  = "";
+        ShowInitAllPanel = true;
+    }
+
+    [RelayCommand]
+    private void CancelInitAll() => ShowInitAllPanel = false;
+
+    [RelayCommand]
+    private void UseDefaultPasswordForInitAll()
+    {
+        InitAllPassword  = DefaultPassword;
+        InitAllPassword2 = DefaultPassword;
+    }
+
+    [RelayCommand]
+    private async Task InitializeAllAsync()
+    {
+        InitAllErrorText = "";
+
+        if (string.IsNullOrWhiteSpace(InitAllPassword))
+        {
+            InitAllErrorText = "Password cannot be empty";
+            return;
+        }
+        if (InitAllPassword != InitAllPassword2)
+        {
+            InitAllErrorText = "Passwords do not match";
+            return;
+        }
+        if (InitAllPassword.Length < 6)
+        {
+            InitAllErrorText = "Password must be at least 6 characters";
+            return;
+        }
+
+        var targets = Cameras
+            .Where(c => c.SetupState == CameraSetupState.NeedsSetup ||
+                        c.SetupState == CameraSetupState.Unknown)
+            .ToList();
+
+        if (targets.Count == 0)
+        {
+            InitAllErrorText = "No uninitialized cameras in the list";
+            return;
+        }
+
+        IsInitializingAll = true;
+        int done = 0, failed = 0;
+
+        for (int i = 0; i < targets.Count; i++)
+        {
+            var camera = targets[i];
+            InitAllProgress = $"Setting password on {camera.Ip}  ({i + 1}/{targets.Count})…";
+
+            try
+            {
+                using var svc = new VapixService(camera.Ip, "root", "");
+                await svc.SetInitialPasswordAsync(InitAllPassword);
+
+                camera.SetupState = CameraSetupState.Ready;
+                camera.Status     = "Password Set";
+                RefreshCameraInList(camera);
+                done++;
+            }
+            catch
+            {
+                failed++;
+                if (camera.SetupState == CameraSetupState.NeedsSetup)
+                {
+                    camera.Status = "Init Failed";
+                    RefreshCameraInList(camera);
+                }
+            }
+        }
+
+        IsInitializingAll = false;
+        ShowInitAllPanel  = false;
+
+        StatusText = done > 0
+            ? $"Initialized {done} camera{(done != 1 ? "s" : "")}" +
+              (failed > 0 ? $"  —  {failed} skipped or failed" : "")
+            : $"No cameras initialized  —  {failed} skipped or unreachable";
     }
 
     // ── Manual connect (when default creds fail) ───────────────────────────

@@ -61,11 +61,18 @@
             <TextBlock Grid.Column="0" Text="DEVICES"
                        Classes="section-header"
                        VerticalAlignment="Center" Margin="16,12"/>
-            <Button Grid.Column="1" Content="⟳  SCAN"
-                    Classes="accent"
-                    Command="{Binding ScanCommand}"
-                    IsEnabled="{Binding !IsScanning}"
-                    Margin="8" Padding="12,6"/>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" Margin="8">
+              <Button Content="⊕  INIT ALL"
+                      Classes="ghost"
+                      Command="{Binding ShowInitAllCommand}"
+                      IsEnabled="{Binding !IsInitializingAll}"
+                      FontSize="9" Padding="10,6"/>
+              <Button Content="⟳  SCAN"
+                      Classes="accent"
+                      Command="{Binding ScanCommand}"
+                      IsEnabled="{Binding !IsScanning}"
+                      Padding="12,6"/>
+            </StackPanel>
           </Grid>
 
           <Rectangle Grid.Row="1" Fill="{DynamicResource BorderBrush}" Height="1"/>
@@ -118,6 +125,88 @@
       </Border>
 
       <Rectangle Grid.Column="1" Fill="{DynamicResource BorderBrush}" Width="1"/>
+
+      <!-- ── Initialize All Modal Overlay ── -->
+      <Panel Grid.Column="0" Grid.ColumnSpan="3"
+             IsVisible="{Binding ShowInitAllPanel}"
+             ZIndex="100">
+        <Rectangle Fill="#CC000000"/>
+        <Border Background="{DynamicResource Bg3Brush}"
+                BorderBrush="{DynamicResource AccentBrush}"
+                BorderThickness="0,0,0,2"
+                CornerRadius="6" Padding="28,22"
+                MaxWidth="500"
+                VerticalAlignment="Center" HorizontalAlignment="Center">
+          <StackPanel Spacing="14">
+
+            <!-- Header -->
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <TextBlock Text="⊕" FontSize="18"
+                         Foreground="{DynamicResource AccentBrush}"
+                         VerticalAlignment="Center"/>
+              <StackPanel Spacing="3">
+                <TextBlock Text="INITIALIZE ALL NEW CAMERAS"
+                           Foreground="{DynamicResource AccentBrush}"
+                           FontSize="10" FontWeight="Bold"/>
+                <TextBlock Text="Sets a password on every factory-default camera in the list"
+                           Classes="dim" FontSize="9"/>
+              </StackPanel>
+            </StackPanel>
+
+            <!-- Password fields -->
+            <Grid ColumnDefinitions="Auto,8,200">
+              <TextBlock Grid.Column="0" Text="NEW PASSWORD" Classes="label"
+                         VerticalAlignment="Center"/>
+              <TextBox Grid.Column="2"
+                       Text="{Binding InitAllPassword}"
+                       PasswordChar="●"
+                       Watermark="min. 6 characters"
+                       FontSize="10"/>
+            </Grid>
+            <Grid ColumnDefinitions="Auto,8,200">
+              <TextBlock Grid.Column="0" Text="CONFIRM" Classes="label"
+                         VerticalAlignment="Center"/>
+              <TextBox Grid.Column="2"
+                       Text="{Binding InitAllPassword2}"
+                       PasswordChar="●"
+                       Watermark="repeat password"
+                       FontSize="10"/>
+            </Grid>
+
+            <!-- Error text -->
+            <TextBlock Text="{Binding InitAllErrorText}"
+                       Foreground="{DynamicResource DangerBrush}"
+                       FontSize="9" FontWeight="Bold"
+                       IsVisible="{Binding InitAllErrorText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+
+            <!-- Progress text -->
+            <TextBlock Text="{Binding InitAllProgress}"
+                       Classes="dim" FontSize="9"
+                       IsVisible="{Binding InitAllProgress, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+
+            <!-- Actions -->
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Button Content="INITIALIZE ALL"
+                      Classes="accent"
+                      Command="{Binding InitializeAllCommand}"
+                      IsEnabled="{Binding !IsInitializingAll}"
+                      Padding="14,6"/>
+              <Button Content="USE DEFAULT PASSWORD"
+                      Classes="ghost"
+                      Command="{Binding UseDefaultPasswordForInitAllCommand}"
+                      ToolTip.Tip="Fill both fields with your saved default password"
+                      IsEnabled="{Binding !IsInitializingAll}"
+                      Padding="14,6"/>
+              <Button Content="CANCEL"
+                      Classes="ghost"
+                      Command="{Binding CancelInitAllCommand}"
+                      IsEnabled="{Binding !IsInitializingAll}"
+                      Padding="14,6"/>
+            </StackPanel>
+
+          </StackPanel>
+        </Border>
+      </Panel>
 
       <!-- ── Right Panel ── -->
       <Grid Grid.Column="2" RowDefinitions="Auto,1,Auto,Auto,Auto,1,*"
