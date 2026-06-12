@@ -7,7 +7,11 @@
       "Bash(echo \"exit: $?\")",
       "Bash(/home/jewaldt/.dotnet/dotnet *)",
       "Bash(DOTNET_ROOT=/home/jewaldt/.dotnet \"/home/jewaldt/RiderProjects/Axis-Camera-Manager/AxisManager/bin/Debug/net10.0/AxisManager\")",
-      "Bash(dotnet build *)"
+      "Bash(dotnet build *)",
+      "Bash(dotnet list *)",
+      "Bash(findstr /i \"Tmds Avalonia\")",
+      "Bash(curl *)",
+      "WebFetch(domain:github.com)"
     ]
   }
 }
